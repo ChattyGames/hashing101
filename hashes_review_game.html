@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HASH CRACKER // AP Cybersecurity Review</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --green: #00ff88;
+    --dim-green: #00aa55;
+    --dark-green: #003322;
+    --bg: #020f08;
+    --panel: #050f09;
+    --border: #00ff8830;
+    --red: #ff3355;
+    --yellow: #ffcc00;
+    --white: #d4f0e0;
+    --glow: 0 0 10px #00ff8860, 0 0 30px #00ff8820;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* scanline effect */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* noise overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  .screen {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    padding: 32px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-shadow: var(--glow);
+    animation: flicker 6s infinite;
+  }
+
+  .header h1 span { color: var(--white); }
+
+  .header .subtitle {
+    font-size: 0.8rem;
+    color: var(--dim-green);
+    letter-spacing: 0.3em;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.85; }
+    97% { opacity: 1; }
+    98% { opacity: 0.9; }
+    99% { opacity: 1; }
+  }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 10px 18px;
+    margin-bottom: 24px;
+    font-size: 0.82rem;
+    letter-spacing: 0.05em;
+  }
+
+  .status-bar .stat { display: flex; gap: 8px; align-items: center; }
+  .stat-label { color: var(--dim-green); }
+  .stat-value { color: var(--green); font-weight: bold; text-shadow: var(--glow); }
+  #score-display { font-size: 1.1rem; }
+
+  /* PROGRESS BAR */
+  .progress-wrap {
+    background: #001a0e;
+    border: 1px solid var(--border);
+    height: 6px;
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--dim-green), var(--green));
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  /* QUESTION CARD */
+  .question-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 32px;
+    margin-bottom: 20px;
+    position: relative;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .question-card::before {
+    content: attr(data-num);
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    background: var(--green);
+    color: var(--bg);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .question-type {
+    font-size: 0.7rem;
+    color: var(--dim-green);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    margin-top: 8px;
+  }
+
+  .question-text {
+    font-size: 1.08rem;
+    color: var(--white);
+    line-height: 1.65;
+    margin-bottom: 26px;
+  }
+
+  .question-text .highlight {
+    color: var(--green);
+    text-shadow: 0 0 6px #00ff8850;
+  }
+
+  /* ANSWER OPTIONS */
+  .options {
+    display: grid;
+    gap: 10px;
+  }
+
+  .option-btn {
+    background: transparent;
+    border: 1px solid #00ff8840;
+    color: var(--white);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.92rem;
+    padding: 14px 18px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .option-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--green);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: inset 0 0 20px #00ff8808, 0 0 8px #00ff8820;
+  }
+
+  .option-btn:hover:not(:disabled)::before { opacity: 0.04; }
+
+  .option-key {
+    color: var(--green);
+    font-weight: bold;
+    min-width: 22px;
+    opacity: 0.8;
+  }
+
+  .option-btn.correct {
+    border-color: var(--green);
+    background: #00ff8815;
+    color: var(--green);
+    text-shadow: 0 0 6px #00ff8840;
+  }
+
+  .option-btn.wrong {
+    border-color: var(--red);
+    background: #ff335510;
+    color: var(--red);
+  }
+
+  .option-btn:disabled { cursor: default; }
+
+  /* TRUE/FALSE */
+  .tf-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* FILL IN THE BLANK */
+  .fill-input {
+    background: transparent;
+    border: 1px solid #00ff8840;
+    border-bottom: 2px solid var(--green);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    padding: 10px 14px;
+    width: 100%;
+    outline: none;
+    caret-color: var(--green);
+    transition: border-color 0.2s;
+  }
+
+  .fill-input:focus { border-color: var(--green); box-shadow: var(--glow); }
+  .fill-input.correct { border-color: var(--green); background: #00ff8815; }
+  .fill-input.wrong { border-color: var(--red); background: #ff335510; }
+
+  .submit-btn {
+    margin-top: 12px;
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    padding: 10px 24px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .submit-btn:hover { background: var(--green); color: var(--bg); box-shadow: var(--glow); }
+
+  /* FEEDBACK */
+  .feedback {
+    margin-top: 18px;
+    padding: 14px 18px;
+    border-left: 3px solid var(--green);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--white);
+    background: #001a0e;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .feedback.show { display: block; }
+  .feedback.wrong-fb { border-color: var(--red); }
+
+  .feedback .fb-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .feedback.show .fb-label { color: var(--green); }
+  .feedback.wrong-fb .fb-label { color: var(--red); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* NEXT BUTTON */
+  .next-btn {
+    display: none;
+    margin-top: 20px;
+    background: var(--green);
+    color: var(--bg);
+    border: none;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 14px 36px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    box-shadow: var(--glow);
+  }
+
+  .next-btn:hover { background: var(--white); box-shadow: 0 0 20px #00ff88; }
+  .next-btn.show { display: inline-block; animation: fadeIn 0.4s ease; }
+
+  /* SECTION BANNER */
+  .section-banner {
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--dim-green);
+    background: #020f08;
+  }
+
+  .section-banner span { color: var(--green); }
+
+  /* FINAL SCREEN */
+  #final-screen {
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+    animation: slideIn 0.5s ease;
+  }
+
+  #final-screen.show { display: block; }
+
+  .final-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 900;
+    text-shadow: var(--glow);
+    margin-bottom: 12px;
+    animation: flicker 4s infinite;
+  }
+
+  .final-score-big {
+    font-size: 4rem;
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    color: var(--green);
+    text-shadow: var(--glow);
+    margin: 28px 0;
+  }
+
+  .final-grade {
+    font-size: 1rem;
+    color: var(--dim-green);
+    letter-spacing: 0.2em;
+    margin-bottom: 20px;
+  }
+
+  .final-msg {
+    font-size: 0.9rem;
+    color: var(--white);
+    max-width: 440px;
+    margin: 0 auto 36px;
+    line-height: 1.7;
+  }
+
+  .restart-btn {
+    background: transparent;
+    border: 2px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 14px 40px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .restart-btn:hover { background: var(--green); color: var(--bg); box-shadow: var(--glow); }
+
+  /* BLINKING CURSOR */
+  .cursor::after {
+    content: '▮';
+    animation: blink 1s step-end infinite;
+    color: var(--green);
+    margin-left: 2px;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  #game-area { animation: slideIn 0.3s ease; }
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <div class="header">
+    <h1>HASH <span>CRACKER</span></h1>
+    <div class="subtitle">AP Cybersecurity // Cryptographic Hashing Review</div>
+  </div>
+
+  <div id="game-area">
+    <div class="status-bar">
+      <div class="stat">
+        <span class="stat-label">QUESTION</span>
+        <span class="stat-value" id="q-counter">1 / 20</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">SCORE</span>
+        <span class="stat-value" id="score-display">0 pts</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">STREAK</span>
+        <span class="stat-value" id="streak-display">—</span>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+
+    <div id="question-area"></div>
+  </div>
+
+  <div id="final-screen">
+    <div class="final-title">// DEBRIEF //</div>
+    <div class="final-score-big" id="final-score-num"></div>
+    <div class="final-grade" id="final-grade"></div>
+    <div class="final-msg" id="final-msg"></div>
+    <button class="restart-btn" onclick="restartGame()">▶ RUN AGAIN</button>
+  </div>
+
+</div>
+
+<script>
+const questions = [
+  // ── SECTION 1: WHAT ARE HASHES ──
+  {
+    section: "Section 1 // What Are Hashes?",
+    type: "mc",
+    q: "A hash function takes any input and produces a <span class='highlight'>fixed-length</span> output called a hash. What is a key property that describes this behavior?",
+    options: ["The output length changes based on input size", "The output is always the same length regardless of input size", "The output can be reversed to recover the input", "The output length depends on which algorithm you pick at runtime"],
+    correct: 1,
+    feedback: "No matter how short or long the input — a single word or an entire movie file — the hash output is ALWAYS the same fixed length. This is a defining property of cryptographic hash functions."
+  },
+  {
+    section: "Section 1 // What Are Hashes?",
+    type: "tf",
+    q: "True or False: The <span class='highlight'>Avalanche Effect</span> means that a small change in input creates a completely different hash output.",
+    options: ["TRUE", "FALSE"],
+    correct: 0,
+    feedback: "TRUE. The Avalanche Effect means even a tiny change — like 'Hello' vs 'hello' — produces a completely different hash. This prevents attackers from guessing patterns."
+  },
+  {
+    section: "Section 1 // What Are Hashes?",
+    type: "mc",
+    q: "Which of the following is NOT a key property of a cryptographic hash function?",
+    options: ["Deterministic — same input always gives same hash", "One-Way — you cannot reverse the hash to get input back", "Bidirectional — you can encode and decode freely", "Collision Resistant — nearly impossible for two inputs to share a hash"],
+    correct: 2,
+    feedback: "'Bidirectional' is NOT a property — in fact, the opposite is true. Cryptographic hashes are ONE-WAY: you cannot reverse the output to recover the original input."
+  },
+  {
+    section: "Section 1 // What Are Hashes?",
+    type: "mc",
+    q: "Websites store hashed passwords instead of actual passwords. If a hacker steals the database, why does this protect users?",
+    options: ["The hacker can easily reverse the hash to find the password", "The hacker sees only hashes and cannot directly read the original passwords", "The hash is encrypted, so the hacker needs the key", "The database only stores usernames, not hashes"],
+    correct: 1,
+    feedback: "Because hashes are one-way functions, stealing a database of hashes does NOT give attackers the plaintext passwords. They must still spend significant time and computing power to try to crack them."
+  },
+  {
+    section: "Section 1 // What Are Hashes?",
+    type: "match",
+    q: "Match the hash algorithm to its current status:",
+    options: ["MD5 — Still widely used and secure", "SHA-256 — Broken; collisions easy to find", "SHA-1 — Widely used today in Bitcoin and digital certs", "SHA-3 — Newer standard, designed to resist modern attacks"],
+    correct: 3,
+    feedback: "SHA-3 is a newer standard designed to resist modern attack methods. MD5 is broken (not secure). SHA-1 is retired (deprecated). SHA-256 is the widely used modern standard."
+  },
+  // ── SECTION 2: WHY USE HASHES ──
+  {
+    section: "Section 2 // Why Use Hashes?",
+    type: "tf",
+    q: "True or False: When you log in to a website, the system compares your typed password directly against the password stored in the database.",
+    options: ["TRUE", "FALSE"],
+    correct: 1,
+    feedback: "FALSE. The system hashes the password you typed and compares THAT hash against the stored hash. The real password is never stored — only its hash."
+  },
+  {
+    section: "Section 2 // Why Use Hashes?",
+    type: "mc",
+    q: "A user has the password 'BlueTiger123'. They log in by typing that password. What does the server actually compare?",
+    options: ["'BlueTiger123' vs the stored plaintext 'BlueTiger123'", "The hash of 'BlueTiger123' vs the stored hash of 'BlueTiger123'", "An encrypted form of 'BlueTiger123' vs a decrypted database entry", "Nothing — the server trusts whatever the user types"],
+    correct: 1,
+    feedback: "The server hashes the typed password and compares it to the stored hash. This way the server NEVER needs to know or store your actual password."
+  },
+  {
+    section: "Section 2 // Why Use Hashes?",
+    type: "mc",
+    q: "Which analogy best captures how a hash function works?",
+    options: ["A lockbox — put something in, take it out later with the right key", "A blender — blend ingredients together, but you can't un-blend them", "A filing cabinet — organized so you can find the original document quickly", "A mirror — reflects back exactly what you put in"],
+    correct: 1,
+    feedback: "A blender is a classic analogy: you can always blend, but you can't un-blend. Similarly, hashing is one-way — easy to compute, impossible to reverse."
+  },
+  {
+    section: "Section 2 // Why Use Hashes?",
+    type: "tf",
+    q: "True or False: If an attacker steals a database of password hashes, they must still spend significant time and computing power to crack those hashes.",
+    options: ["TRUE", "FALSE"],
+    correct: 0,
+    feedback: "TRUE. Even with the hashes, attackers must brute-force or use lookup tables to try to find matching inputs. Strong hashing makes this computationally expensive."
+  },
+  // ── SECTION 3: ADVERSARIES & COLLISIONS ──
+  {
+    section: "Section 3 // Adversaries & Collisions",
+    type: "mc",
+    q: "A <span class='highlight'>collision</span> in hashing occurs when:",
+    options: ["Two identical inputs produce different hash outputs", "Two different inputs produce the same hash output", "A hash algorithm crashes during computation", "An attacker intercepts a hash in transit"],
+    correct: 1,
+    feedback: "A collision = two DIFFERENT inputs that produce the SAME hash. This is dangerous because an attacker could substitute one input for another and the system wouldn't detect it."
+  },
+  {
+    section: "Section 3 // Adversaries & Collisions",
+    type: "tf",
+    q: "True or False: SHA-256 and SHA-3 are deprecated and should no longer be used, because attackers have found ways to create collisions.",
+    options: ["TRUE", "FALSE"],
+    correct: 1,
+    feedback: "FALSE. SHA-256 and SHA-3 are still considered SECURE today. MD5 and SHA-1 are the deprecated ones — they're broken and should not be used."
+  },
+  {
+    section: "Section 3 // Adversaries & Collisions",
+    type: "mc",
+    q: "SHA-256 produces a 256-bit hash. Why does a larger bit-length make collisions less likely?",
+    options: ["Larger hashes are slower to compute, which discourages attackers", "More bits means exponentially more possible unique output values", "Larger hashes are encrypted, not just hashed", "Bit length has no effect on collision resistance"],
+    correct: 1,
+    feedback: "More bits = exponentially more possible hash values. SHA-256 has 2^256 possible outputs — an astronomically large number — making accidental or forced collisions nearly impossible."
+  },
+  {
+    section: "Section 3 // Adversaries & Collisions",
+    type: "mc",
+    q: "Attackers have used MD5 collisions to create two documents with the same hash — one harmless, one malicious. What is the security consequence?",
+    options: ["The malicious file gets flagged automatically by the system", "The system sees identical hashes and trusts the malicious file as if it were safe", "The attacker needs to also break encryption to exploit this", "This can only happen with files, not passwords"],
+    correct: 1,
+    feedback: "If two files share the same hash, a system that checks hash-for-integrity cannot distinguish them. An attacker can replace a trusted file with a malicious one and the hash check passes."
+  },
+  {
+    section: "Section 3 // Adversaries & Collisions",
+    type: "mc",
+    q: "MD5 produces a 128-bit hash. SHA-1 produces a 160-bit hash. SHA-256 produces a 256-bit hash. Which is the correct order from WEAKEST to STRONGEST (collision resistance)?",
+    options: ["SHA-256 → SHA-1 → MD5", "MD5 → SHA-1 → SHA-256", "SHA-1 → MD5 → SHA-256", "All are equally strong"],
+    correct: 1,
+    feedback: "MD5 (128-bit, broken) → SHA-1 (160-bit, deprecated) → SHA-256 (256-bit, currently secure). Larger bit-length AND algorithmic improvements both contribute to collision resistance."
+  },
+  {
+    section: "Section 3 // Adversaries & Collisions",
+    type: "tf",
+    q: "True or False: If an attacker can force a hash collision, they may be able to trick a system into accepting a malicious file as if it were a safe, verified one.",
+    options: ["TRUE", "FALSE"],
+    correct: 0,
+    feedback: "TRUE. This is exactly the danger of hash collisions. Systems relying on hashes for trust (like digital signatures or file integrity checks) can be fooled when two different files share a hash."
+  },
+  // ── SECTION 4: SALTING ──
+  {
+    section: "Section 4 // Salting Hashes",
+    type: "mc",
+    q: "A <span class='highlight'>salt</span> in password hashing is:",
+    options: ["An encryption key added after hashing", "A random string of data added to a password BEFORE hashing", "A second hash applied on top of the first", "A way to shorten the output of the hash"],
+    correct: 1,
+    feedback: "A salt is a random string added to the password BEFORE it is hashed. Example: password 'sunshine' + salt 'x7!' → hash the combined string 'sunshinex7!'"
+  },
+  {
+    section: "Section 4 // Salting Hashes",
+    type: "mc",
+    q: "Two users both have the password 'Password123'. With unique salts applied, their stored hashes will:",
+    options: ["Look identical, since they have the same password", "Look completely different, even though the passwords are the same", "Both be invalid — identical passwords can't be salted", "Match only if they use the same hash algorithm"],
+    correct: 1,
+    feedback: "Because each user gets a DIFFERENT random salt, the combined inputs are different → completely different hashes. An attacker can't tell which users share the same password."
+  },
+  {
+    section: "Section 4 // Salting Hashes",
+    type: "mc",
+    q: "Salting defeats <span class='highlight'>rainbow table attacks</span> because:",
+    options: ["It encrypts the hash so rainbow tables can't read it", "The added salt changes the input, making precomputed hash lists useless", "Rainbow tables don't work against SHA-256", "Salts extend the hash length, which rainbow tables can't handle"],
+    correct: 1,
+    feedback: "Rainbow tables are precomputed lists of hashes for common passwords. Adding a unique salt changes the actual input being hashed, so precomputed tables no longer match — you'd need a separate table for every possible salt."
+  },
+  {
+    section: "Section 4 // Salting Hashes",
+    type: "tf",
+    q: "True or False: When a system salts a password hash, the salt must be kept completely secret and is NEVER stored — otherwise attackers could use it.",
+    options: ["TRUE", "FALSE"],
+    correct: 1,
+    feedback: "FALSE. The salt IS stored in the database alongside the hash. The security comes from each user having a UNIQUE salt, not from keeping it secret. The salt forces attackers to crack each hash individually."
+  },
+  {
+    section: "Section 4 // Salting Hashes",
+    type: "mc",
+    q: "Which combination provides the STRONGEST password protection?",
+    options: ["MD5 hash, no salt", "SHA-1 hash with a shared salt for all users", "SHA-256 hash with a unique random salt per user", "SHA-256 hash with no salt"],
+    correct: 2,
+    feedback: "Best practice: use a modern, secure hash algorithm (SHA-256 or better) AND add a unique random salt per user. This defeats rainbow tables, prevents identical passwords from sharing hashes, and forces per-hash cracking."
+  }
+];
+
+let currentQ = 0;
+let score = 0;
+let streak = 0;
+let answered = false;
+let shuffledQuestions = [];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startGame() {
+  shuffledQuestions = shuffle(questions);
+  currentQ = 0; score = 0; streak = 0;
+  document.getElementById('final-screen').classList.remove('show');
+  document.getElementById('game-area').style.display = 'block';
+  renderQuestion();
+}
+
+function renderQuestion() {
+  answered = false;
+  const q = shuffledQuestions[currentQ];
+  const total = shuffledQuestions.length;
+
+  document.getElementById('q-counter').textContent = `${currentQ + 1} / ${total}`;
+  document.getElementById('score-display').textContent = `${score} pts`;
+  document.getElementById('streak-display').textContent = streak > 1 ? `🔥 ${streak}` : (streak === 1 ? '1' : '—');
+  document.getElementById('progress-fill').style.width = `${(currentQ / total) * 100}%`;
+
+  let optionsHTML = '';
+  const keys = ['A', 'B', 'C', 'D'];
+
+  if (q.type === 'tf') {
+    optionsHTML = `<div class="options tf-options">
+      ${q.options.map((opt, i) => `
+        <button class="option-btn" onclick="selectAnswer(${i})" id="opt-${i}">
+          <span class="option-key">${opt === 'TRUE' ? '✓' : '✗'}</span>
+          <span>${opt}</span>
+        </button>`).join('')}
+    </div>`;
+  } else if (q.type === 'fill') {
+    optionsHTML = `
+      <input class="fill-input" type="text" id="fill-input" placeholder="Type your answer..." autocomplete="off" />
+      <button class="submit-btn" onclick="submitFill()">SUBMIT</button>`;
+  } else {
+    const shuffledOpts = q.type === 'match' ? q.options : shuffle(q.options.map((o, i) => ({ text: o, orig: i })));
+    const correctText = q.options[q.correct];
+    optionsHTML = `<div class="options">
+      ${shuffledOpts.map((opt, i) => {
+        const text = q.type === 'match' ? opt : opt.text;
+        const isCorrect = (q.type === 'match') ? (i === q.correct) : (text === correctText);
+        return `<button class="option-btn" onclick="selectAnswer(${isCorrect ? 'correct' : i}, '${isCorrect}')" id="opt-${i}" data-correct="${isCorrect}">
+          <span class="option-key">${keys[i]}</span>
+          <span>${text}</span>
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  document.getElementById('question-area').innerHTML = `
+    <div class="section-banner">// <span>${q.section}</span></div>
+    <div class="question-card" data-num="Q${currentQ + 1}">
+      <div class="question-type">${q.type === 'tf' ? '◈ TRUE / FALSE' : q.type === 'fill' ? '◈ FILL IN THE BLANK' : q.type === 'match' ? '◈ IDENTIFY THE CORRECT STATEMENT' : '◈ MULTIPLE CHOICE'}</div>
+      <div class="question-text">${q.q}</div>
+      ${optionsHTML}
+      <div class="feedback" id="feedback"></div>
+      <button class="next-btn" id="next-btn" onclick="nextQuestion()">
+        ${currentQ < total - 1 ? 'NEXT QUESTION ▶' : 'SEE RESULTS ▶'}
+      </button>
+    </div>`;
+
+  if (q.type === 'fill') {
+    document.getElementById('fill-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitFill();
+    });
+  }
+}
+
+function selectAnswer(idx, isCorrectStr) {
+  if (answered) return;
+  answered = true;
+  const q = shuffledQuestions[currentQ];
+  let isCorrect;
+
+  if (q.type === 'tf') {
+    isCorrect = idx === q.correct;
+    document.querySelectorAll('.option-btn').forEach((btn, i) => {
+      btn.disabled = true;
+      if (i === q.correct) btn.classList.add('correct');
+      else if (i === idx) btn.classList.add('wrong');
+    });
+  } else {
+    isCorrect = isCorrectStr === 'true';
+    document.querySelectorAll('.option-btn').forEach(btn => {
+      btn.disabled = true;
+      if (btn.dataset.correct === 'true') btn.classList.add('correct');
+    });
+    if (!isCorrect) {
+      document.querySelectorAll('.option-btn')[idx]?.classList.add('wrong');
+    }
+  }
+
+  handleResult(isCorrect, q);
+}
+
+function submitFill() {
+  if (answered) return;
+  const q = shuffledQuestions[currentQ];
+  const input = document.getElementById('fill-input');
+  const val = input.value.trim().toLowerCase();
+  const isCorrect = q.accepts.some(a => val.includes(a.toLowerCase()));
+  answered = true;
+  input.disabled = true;
+  input.classList.add(isCorrect ? 'correct' : 'wrong');
+  handleResult(isCorrect, q);
+}
+
+function handleResult(isCorrect, q) {
+  if (isCorrect) {
+    score += 10;
+    streak++;
+    if (streak > 1) score += 5; // bonus for streak
+  } else {
+    streak = 0;
+  }
+
+  const fb = document.getElementById('feedback');
+  fb.className = `feedback show ${isCorrect ? '' : 'wrong-fb'}`;
+  fb.innerHTML = `<div class="fb-label">${isCorrect ? '✓ CORRECT' : '✗ INCORRECT'}</div>${q.feedback}`;
+
+  document.getElementById('next-btn').classList.add('show');
+  document.getElementById('score-display').textContent = `${score} pts`;
+  document.getElementById('streak-display').textContent = streak > 1 ? `🔥 ${streak}` : (streak === 1 ? '1' : '—');
+}
+
+function nextQuestion() {
+  currentQ++;
+  if (currentQ >= shuffledQuestions.length) {
+    showFinal();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showFinal() {
+  document.getElementById('game-area').style.display = 'none';
+  const total = shuffledQuestions.length;
+  const pct = Math.round((score / (total * 10)) * 100);
+  let grade, msg;
+
+  if (pct >= 90) { grade = "ACCESS GRANTED // A"; msg = "Solid command of hashing concepts. You understand hash properties, collision risks, deprecated algorithms, and salting. AP-exam ready on this topic."; }
+  else if (pct >= 80) { grade = "ACCESS GRANTED // B"; msg = "Strong performance. Review any missed questions — pay close attention to collision definitions and which algorithms are deprecated vs. secure."; }
+  else if (pct >= 70) { grade = "PARTIAL ACCESS // C"; msg = "Decent foundation, but some gaps remain. Revisit the sections on Adversaries & Collisions and Salting — these are AP exam favorites."; }
+  else if (pct >= 60) { grade = "ACCESS LIMITED // D"; msg = "Worth another pass through the material. Focus on the key properties of hash functions, why MD5/SHA-1 are deprecated, and how salting defeats rainbow tables."; }
+  else { grade = "ACCESS DENIED // F"; msg = "Head back to the readings. Start with the four key properties of hash functions, then work through collisions and salting. You've got this."; }
+
+  const fs = document.getElementById('final-screen');
+  fs.classList.add('show');
+  document.getElementById('final-score-num').textContent = `${score} PTS`;
+  document.getElementById('final-grade').textContent = grade;
+  document.getElementById('final-msg').textContent = msg;
+}
+
+function restartGame() {
+  document.getElementById('final-screen').classList.remove('show');
+  document.getElementById('game-area').style.display = 'block';
+  startGame();
+}
+
+startGame();
+</script>
+</body>
+</html>
